@@ -51,6 +51,7 @@
 #include <gst/gst.h>
 #include <gst/rtp/rtp.h>
 #include "gstgscreamrx.h"
+#include <cstring>
 
 #define DOSCREAM true
 
@@ -321,7 +322,7 @@ gboolean rtcpPeriodicTimer(GstClock *clock, GstClockTime, GstClockID id, gpointe
 
   if (true && isFeedback) {
     g_signal_emit_by_name(filter->rtpSession,"send-rtcp",20000000);
-   // g_print(" SF \n");
+    g_print(" SF \n");
   }
 }
 
@@ -340,7 +341,7 @@ static gboolean on_sending_rtcp(GObject *session, GstBuffer *buffer, gboolean ea
   gboolean has_packet, do_not_suppress = FALSE;
 
   session_id = GPOINTER_TO_UINT(g_object_get_data(session, "session_id"));
-  //g_print("%6.3f SEND RTCP ?  %d bytes session %d\n", time , gst_buffer_get_size(buffer), session_id);
+  g_print("%6.3f SEND RTCP ?  %d bytes session %d\n", time , gst_buffer_get_size(buffer), session_id);
   int iter = 0;
 
   if (gst_rtcp_buffer_map(buffer, (GstMapFlags)(GST_MAP_READ | GST_MAP_WRITE), &rtcp_buffer)) {
@@ -377,14 +378,14 @@ static gboolean on_sending_rtcp(GObject *session, GstBuffer *buffer, gboolean ea
     bool isFb = filter->screamRx->createStandardizedFeedback(time_ntp, buf , rtcpSize);
     pthread_mutex_unlock(&filter->lock_scream);
     if (isFb && time - filter->lastRxTime < 2.0) {
-      //g_print("TS %X \n",(time_ntp));
+      g_print("TS %X \n",(time_ntp));
       gst_rtcp_buffer_add_packet(&rtcp_buffer, GST_RTCP_TYPE_RTPFB, &rtcp_packet);
       guint32 ssrc_n,ssrc_h;
       memcpy(&ssrc_n, &buf[8],4);
 
 
       ssrc_h = g_ntohl(ssrc_n);
-      //g_print("MSSRC %x \n", ssrc_h);
+      g_print("MSSRC %x \n", ssrc_h);
       gst_rtcp_packet_fb_set_media_ssrc(&rtcp_packet, ssrc_h);
       //gst_rtcp_packet_fb_set_type(&rtcp_packet, 0);
       //gst_rtcp_packet_set_type(rtcp_packet, GST_RTCP_TYPE_RTPFB);
@@ -392,7 +393,7 @@ static gboolean on_sending_rtcp(GObject *session, GstBuffer *buffer, gboolean ea
       gst_rtcp_packet_fb_set_fci_length(&rtcp_packet, len);
       guint8* fci_buf = gst_rtcp_packet_fb_get_fci(&rtcp_packet);
       memcpy(fci_buf, buf+12, len*4);
-      //g_print("%6.3f RTCP fb of size %d TS %X \n", time, rtcpSize, time_ntp);
+      g_print("%6.3f RTCP fb of size %d TS %X \n", time, rtcpSize, time_ntp);
 
       //has_packet = gst_rtcp_buffer_get_first_packet(&rtcp_buffer, &rtcp_packet);
       //gst_rtcp_packet_remove(&rtcp_packet);
@@ -421,15 +422,17 @@ gst_g_scream_rx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
 if(DOSCREAM)   {
   if (filter->rtpSession == NULL) {
     GstElement *pipe = GST_ELEMENT_PARENT(parent);
-    //g_print("\ngscream name2 %s \n", gst_element_get_name(pipe));
+    g_print("\ngscream name2 %s \n", gst_element_get_name(pipe));
     GstElement *rtpbin = gst_bin_get_by_name_recurse_up(GST_BIN(pipe), "rtpbin");
     g_assert(rtpbin);
     g_signal_emit_by_name(rtpbin,"get_internal_session", 0, &(filter->rtpSession));
+    g_assert(filter->rtpSession);
+    g_print("session id: %d \n", g_object_get_data(filter->rtpSession, "session_id"));
 
-    g_object_set(&(filter->rtpSession), "rtcp-reduced-size", true, NULL);
+    g_object_set(g_object_get_data(filter->rtpSession, "internal-session"), "rtcp-reduced-size", true, NULL);
 
     GstClock *clock = gst_pipeline_get_clock((GstPipeline*) pipe);
-    filter->clockId=gst_clock_new_periodic_id(clock,gst_clock_get_internal_time(clock),5000000);
+    filter->clockId = gst_clock_new_periodic_id(clock, gst_clock_get_internal_time(clock), 5000000);
     g_assert(filter->clockId);
     GstClockReturn t = gst_clock_id_wait_async(filter->clockId, rtcpPeriodicTimer, (gpointer) filter, NULL);
     g_print("SINK EVENT \n");
@@ -518,7 +521,7 @@ if (DOSCREAM)  {
 
   }
   filter->lastRxTime = time;
-  //g_print("%6.3f RX %d \n", time, sn_h);
+  g_print("%6.3f RX %d \n", time, sn_h);
 
   pthread_mutex_lock(&filter->lock_scream);
   getTime(filter, &time, &time_ntp);
@@ -526,13 +529,13 @@ if (DOSCREAM)  {
   pthread_mutex_unlock(&filter->lock_scream);
 
 
-  //bool isFeedback = filter->screamRx->isFeedback(time_ntp) &&
-  //    (time_ntp - filter->screamRx->getLastFeedbackT() > filter->screamRx->getRtcpFbInterval() || filter->screamRx->checkIfFlushAck());
+  /*bool isFeedback = filter->screamRx->isFeedback(time_ntp) &&
+      (time_ntp - filter->screamRx->getLastFeedbackT() > filter->screamRx->getRtcpFbInterval() || filter->screamRx->checkIfFlushAck());
 
-  //if (true && isFeedback) {
-    //g_print("%6.3f Request SEND RTCP  1 %d \n", time, sn_h);
-    //g_signal_emit_by_name(filter->rtpSession,"send-rtcp",20000000);
-  //}
+  if (true && isFeedback) {
+     g_print("%6.3f Request SEND RTCP  1 %d \n", time, sn_h);
+     g_signal_emit_by_name(filter->rtpSession,"send-rtcp",20000000);
+  }*/
 
 }
   /* just push out the incoming buffer without touching it */

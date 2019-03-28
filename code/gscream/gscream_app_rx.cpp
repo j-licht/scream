@@ -105,6 +105,8 @@ int main (int argc, char *argv[])
   /* Initialisation */
   gst_init (&argc, &argv);
 
+  gst_debug_set_default_threshold(GST_LEVEL_WARNING);
+
   loop = g_main_loop_new (NULL, FALSE);
 
   /* Create gstreamer elements */

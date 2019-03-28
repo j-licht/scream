@@ -1,5 +1,5 @@
 CXX= g++
-CXXFLAGS= -Wall
+CXXFLAGS= -Wall -g -O0
 PKGCONFIG= pkg-config
 PACKAGES= gstreamer-1.0
 LIBS:= $(shell $(PKGCONFIG) --cflags --libs $(PACKAGES))

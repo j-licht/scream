@@ -66,9 +66,11 @@ int main (int argc, char *argv[])
   /* Create gstreamer elements */
   pipeline = gst_pipeline_new ("pipeline");
 
+  gst_debug_set_default_threshold(GST_LEVEL_WARNING);
+
   /*Main imports*/
-  //videosrc        = gst_element_factory_make ("videotestsrc",   "videosource");
-  videosrc        = gst_element_factory_make ("v4l2src",        "videosource");
+  videosrc        = gst_element_factory_make ("videotestsrc",   "videosource");
+  //videosrc        = gst_element_factory_make ("v4l2src",        "videosource");
   videoconvert    = gst_element_factory_make ("videoconvert",   "videoconvert");
   capsfilter      = gst_element_factory_make ("capsfilter",     "capsfilter");
   videoencode     = gst_element_factory_make ("x264enc",        "encoder");
@@ -85,7 +87,7 @@ int main (int argc, char *argv[])
   //g_object_set  (G_OBJECT(videosrc), "device", argv[1], NULL);
   //g_object_set  (G_OBJECT(udpsrc), "host", argv[2], "port", std::atoi(argv[3]), NULL);
   //capsfiltercaps = gst_caps_from_string("video/x-raw-yuv,format=(fourcc)YUV2,framerate=30/1");
-  capsfiltercaps = gst_caps_from_string("video/x-raw,framerate=30/1");//,width=800,height=600");
+  capsfiltercaps = gst_caps_from_string("video/x-raw,framerate=30/1,width=800,height=600");
   //capsfiltercaps = gst_caps_from_string("video/x-h264,profile=main,framerate=30/1");
   //capsfiltercaps = gst_caps_from_string("video/x-raw,framerate=30/1");
   /*gst_caps_new_simple ("video/x-raw",
@@ -120,8 +122,8 @@ int main (int argc, char *argv[])
 
 
   char s[100];
-  //g_object_set (G_OBJECT(videosrc),"is-live", 1,  "horizontal-speed", 5, "pattern", 11, NULL);
-  g_object_set (G_OBJECT(videosrc),"device", argv[1],  NULL);
+  g_object_set (G_OBJECT(videosrc),"is-live", 1,  "horizontal-speed", 5, "pattern", 11, NULL);
+  //g_object_set (G_OBJECT(videosrc),"device", argv[1],  NULL);
 
   rtpbin          = gst_element_factory_make ("rtpbin",         "rtpbin");
   g_object_set (rtpbin, "rtp-profile", GST_RTP_PROFILE_AVPF, NULL);
@@ -136,7 +138,8 @@ int main (int argc, char *argv[])
 
   rtcpsink = gst_element_factory_make ("udpsink", "rtcpsink");
   g_assert (rtcpsink);
-  g_object_set (rtcpsink, "port", 5001, "host", argv[1], "bind-port", 5001, NULL);
+  //g_object_set (rtcpsink, "port", 5001, "host", argv[2], "bind-port", 5001, NULL);
+  g_object_set (rtcpsink, "port", 5001, "host", argv[2], NULL);
   /* no need for synchronisation or preroll on the RTCP sink */
   g_object_set (rtcpsink, "async", FALSE, "sync", FALSE, NULL);
 
@@ -177,11 +180,15 @@ int main (int argc, char *argv[])
     g_error ("Failed to link rtcpsrc to rtpbin");
   gst_object_unref (srcpad);
 
+  gst_element_set_state (rtcpsink, GST_STATE_PAUSED);
+  g_object_set(rtcpsink, "socket", g_object_get_data((GObject*)rtcpsrc, "used_socket"), NULL);
+
+
   /* Set the pipeline to "playing" state*/
   g_print ("Now set pipeline in state playing\n");
   gst_element_set_state (pipeline, GST_STATE_PLAYING);
 
-  //GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "send-pipeline-af-playing-bf-running");
+  GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "send-pipeline-af-playing-bf-running");
 
   /* Iterate */
   g_print ("Running...\n");

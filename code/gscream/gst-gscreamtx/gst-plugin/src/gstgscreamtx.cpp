@@ -103,8 +103,8 @@ gst_g_scream_tx_class_init (GstgScreamTxClass * klass)
 
   g_object_class_install_property (gobject_class, PROP_MEDIA_SRC,
       g_param_spec_uint ("media-src", "Media source",
-        "0=x264enc, 1=rpicamsrc, 2=uvch264src, 3=vaapih264enc, 4=omxh264enc",
-        0, 4, 0,
+        "0=x264enc, 1=rpicamsrc, 2=uvch264src, 3=vaapih264enc, 4=omxh264enc, 5=opusenc",
+        0, 5, 0,
         G_PARAM_READWRITE));
 
   gst_element_class_set_details_simple(gstelement_class,
@@ -139,7 +139,7 @@ gst_g_scream_tx_init (GstgScreamTx * filter)
   pthread_mutex_init(&filter->lock_scream, NULL);
   pthread_mutex_init(&filter->lock_rtp_queue, NULL);
 
-  filter->media_src = 0; // x264enc
+  //filter->media_src = 0; // x264enc
 
 
   gst_pad_set_event_function (filter->sinkpad,
@@ -249,7 +249,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
 {
   //GstgScreamTx *filter = GST_GSCREAMTX (object);
   GstgScreamTx *filter = (GstgScreamTx*)object;
-  //g_print("   PTR1 %x %x %x\n",  filter, filter_ , session);
+  g_print("   PTR1 %x %x %x\n",  filter, filter_ , session);
   float time;
   guint32 time_ntp;
   getTime(filter_,&time,&time_ntp);
@@ -311,6 +311,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
             case 1: // rpicamsrc
             case 2: // uvch264src
             case 4: // omxh264enc
+            case 5: // opusenc
               break;
           }
           pthread_mutex_unlock(&filter_->lock_scream);
@@ -324,6 +325,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
               case 0:
               case 1:
               case 3:
+              case 5:
                 g_object_set(G_OBJECT(filter_->encoder), "bitrate", rate, NULL);
                 break;
               case 2:
@@ -334,6 +336,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
                 g_object_set(G_OBJECT(filter_->encoder), "target-bitrate", rate, NULL);
                 break;
             }
+            g_print("set rate to: %i\n", rate);
 
             char buf2[1000];
             pthread_mutex_lock(&filter_->lock_scream);
@@ -437,6 +440,9 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
       case 4:
         filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 300e3f, 1000e3f, 15e6f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
         break;
+      case 5:
+        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 4e3f, 64e3f, 65e4f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
+        break;
     }
   }
 
@@ -502,7 +508,7 @@ gst_g_scream_tx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
   gboolean ret;
 
   filter = GST_GSCREAMTX (parent);
-  //g_print(" PTR3 %x\n", filter);
+  g_print(" PTR3 %x\n", filter);
   GST_LOG_OBJECT (filter, "Received %s event: %", GST_PTR_FORMAT,
       GST_EVENT_TYPE_NAME (event), event);
 
@@ -511,8 +517,8 @@ gst_g_scream_tx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
     GstElement *rtpbin = gst_bin_get_by_name_recurse_up(GST_BIN(pipe), "rtpbin");
     g_assert(rtpbin);
     g_signal_emit_by_name(rtpbin,"get_internal_session", 0, &(filter->rtpSession));
-    //g_print("RTPSESSION\n");
-    //g_print("   PTR2 %x \n",  filter);
+    g_print("RTPSESSION\n");
+    g_print("   PTR2 %x \n",  filter);
     filter_ = filter;
     /*
     * Odd feature... the last parameter is not kept .. strange...
@@ -521,8 +527,8 @@ gst_g_scream_tx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
     g_object_set((filter->rtpSession), "rtcp-min-interval", 500000000, NULL);
 
     g_signal_connect_after((filter->rtpSession), "on-receiving-rtcp", G_CALLBACK(on_receiving_rtcp), filter);
-    //g_print("CALLBACK\n");
-    filter->encoder = gst_bin_get_by_name_recurse_up(GST_BIN(pipe), "video");
+    g_print("CALLBACK\n");
+    filter->encoder = gst_bin_get_by_name_recurse_up(GST_BIN(pipe), "encoder");
     g_assert(filter->encoder);
     
     
