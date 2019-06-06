@@ -918,7 +918,7 @@ void ScreamTx::getLog(float time, char *s) {
 
 void ScreamTx::getShortLog(float time, char *s) {
 	int inFlightMax = std::max(bytesInFlight, bytesInFlightHistHiMem);
-	sprintf(s, "%4.3f, %4.3f, %6d, %6d, %6.0f, %1d, ",
+    sprintf(s, "%4.3f %4.3f %6d %6d %6.3f %1d ",
 		queueDelayMax, sRtt,
 		cwnd, bytesInFlightLog, rateTransmitted / 1000.0f, isInFastStart());
 	bytesInFlightLog = bytesInFlight;
@@ -926,7 +926,7 @@ void ScreamTx::getShortLog(float time, char *s) {
 	for (int n = 0; n < nStreams; n++) {
 		Stream *tmp = streams[n];
 		char s2[200];
-		sprintf(s2, "%4.3f, %6.0f, %6.0f, %6.0f, %5.0f, ",
+        sprintf(s2, "%4.3f %6.3f %6.3f %6.3f %5.3f ",
 			std::max(0.0f, tmp->rtpQueue->getDelay(time)),
 			tmp->targetBitrate / 1000.0f, tmp->rateRtp / 1000.0f,
 			tmp->rateTransmitted / 1000.0f,

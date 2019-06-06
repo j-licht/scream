@@ -249,7 +249,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
 {
   //GstgScreamTx *filter = GST_GSCREAMTX (object);
   GstgScreamTx *filter = (GstgScreamTx*)object;
-  g_print("   PTR1 %x %x %x\n",  filter, filter_ , session);
+  //g_print("   PTR1 %x %x %x\n",  filter, filter_ , session);
   float time;
   guint32 time_ntp;
   getTime(filter_,&time,&time_ntp);
@@ -336,7 +336,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
                 g_object_set(G_OBJECT(filter_->encoder), "target-bitrate", rate, NULL);
                 break;
             }
-            g_print("set rate to: %i\n", rate);
+            //g_print("set rate to: %i\n", rate);
 
             char buf2[1000];
             pthread_mutex_lock(&filter_->lock_scream);
@@ -508,7 +508,7 @@ gst_g_scream_tx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
   gboolean ret;
 
   filter = GST_GSCREAMTX (parent);
-  g_print(" PTR3 %x\n", filter);
+  //g_print(" PTR3 %x\n", filter);
   GST_LOG_OBJECT (filter, "Received %s event: %", GST_PTR_FORMAT,
       GST_EVENT_TYPE_NAME (event), event);
 
@@ -517,8 +517,8 @@ gst_g_scream_tx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
     GstElement *rtpbin = gst_bin_get_by_name_recurse_up(GST_BIN(pipe), "rtpbin");
     g_assert(rtpbin);
     g_signal_emit_by_name(rtpbin,"get_internal_session", 0, &(filter->rtpSession));
-    g_print("RTPSESSION\n");
-    g_print("   PTR2 %x \n",  filter);
+    //g_print("RTPSESSION\n");
+    //g_print("   PTR2 %x \n",  filter);
     filter_ = filter;
     /*
     * Odd feature... the last parameter is not kept .. strange...
