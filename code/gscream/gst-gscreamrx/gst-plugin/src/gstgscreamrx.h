@@ -73,6 +73,7 @@ struct _GstgScreamRx
 
   GstPad *sinkpad, *srcpad, *srcrtcppad;
 
+  guint32 ssrc_h_old;
   gboolean silent;
   ScreamRx *screamRx;
   GstClockTime gstClockTimeRef;

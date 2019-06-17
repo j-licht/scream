@@ -884,6 +884,7 @@ float ScreamTx::getTargetBitrate(uint32_t ssrc) {
 	int id;
     Stream* stream = getStream(ssrc, id);
     if (stream == 0) {
+        std::cerr << "SSRC not known" << std::endl;
         return 0;
     }
     return stream->getTargetBitrate();

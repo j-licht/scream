@@ -512,12 +512,13 @@ if (DOSCREAM)  {
   //g_print ("%d %d %d %x %d %f\n",
   //    size , pt, sn_h, ssrc_h, time_ntp, time);
 
-  if (time - filter->lastRxTime > 2.0) {
+  if (ssrc_h != filter->ssrc_h_old) {
     pthread_mutex_lock(&filter->lock_scream);
     delete filter->screamRx;
     filter->screamRx = new ScreamRx(0); // Note SSRC should be something else
     pthread_mutex_unlock(&filter->lock_scream);
     g_print("Restart receiver\n");
+    filter->ssrc_h_old = ssrc_h;
 
   }
   filter->lastRxTime = time;
