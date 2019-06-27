@@ -303,6 +303,7 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
 
           pthread_mutex_lock(&filter_->lock_scream);
           int rate = (int) (filter_->screamTx->getTargetBitrate(ssrc_h));
+          int fecpercentage = filter_->screamTx->getFECPercantage(ssrc_h);
           switch (filter_->media_src) {
             case 0: // x264enc
             case 3: // vaapih264enc
@@ -326,7 +327,10 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
               case 1:
               case 3:
               case 5:
+                //subtract overhead
+                rate -= 12 * 8 * (1000 / 20);
                 g_object_set(G_OBJECT(filter_->encoder), "bitrate", rate, NULL);
+                //g_object_set(G_OBJECT(filter_->encoder), "packet-loss-percentage", fecpercentage, NULL);
                 break;
               case 2:
                 g_object_set(G_OBJECT(filter_->encoder), "average-bitrate", rate, NULL);
@@ -441,7 +445,7 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 300e3f, 1000e3f, 15e6f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
         break;
       case 5:
-        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 4e3f, 64e3f, 65e4f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
+        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / 20)), 10e3f, 10e4f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
         break;
     }
   }

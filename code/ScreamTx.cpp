@@ -1834,7 +1834,7 @@ void ScreamTx::Stream::updateTargetBitrate(uint32_t time_ntp) {
 			* throughput in the initial phase.
 			*/
 			rtpQueue->clear();
-			cerr << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
+            cout << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
 
 			rtpQueueDiscard = true;
 
@@ -1895,7 +1895,7 @@ void ScreamTx::Stream::updateTargetBitrate(uint32_t time_ntp) {
 			* throughput in the initial phase.
 			*/
 			rtpQueue->clear();
-			cerr << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
+            cout << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
 
 			rtpQueueDiscard = true;
 

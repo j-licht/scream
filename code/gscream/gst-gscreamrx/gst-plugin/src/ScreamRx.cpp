@@ -243,6 +243,7 @@ void ScreamRx::receive(uint32_t time_ntp,
     /*
     * New {SSRC,PT}
     */
+    std::cout << "new SSRC" << std::endl;
     Stream *stream = new Stream(ssrc);
     stream->ix = ix++;
     stream->receive(time_ntp, rtpPacket, size, seqNr, ceBits == 0x03, ceBits);

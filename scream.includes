@@ -3,3 +3,5 @@ code/gscream/gst-gscreamrx/gst-plugin
 code/gscream/gst-gscreamrx/gst-plugin/src
 code/gscream/gst-gscreamtx/gst-plugin
 code/gscream/gst-gscreamtx/gst-plugin/src
+/usr/include/glib-2.0/
+/usr/include/gstreamer-1.0/

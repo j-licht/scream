@@ -26,14 +26,16 @@ static const float kPacketPacingHeadRoom = 1.5f;
 
 // Rate update interval
 static const uint32_t kRateAdjustInterval_ntp = 13107; // 200ms in NTP domain
+static const uint32_t kFECUpdatePercantageAdjustInterval_ntp = 3277; // 50ms in NTP domain
+static const float kAlphaFECPercantage = 0.5;
 
 // ==== Less important tuning parameters ====
 // Min pacing interval and min pacing rate
 static const float kMinPaceInterval = 0.000f;
-static const float kMinimumBandwidth = 5000.0f; // bps
+static const float kMinimumBandwidth = 4000.0f; // bps
 // Initial MSS, this is set quite low in order to make it possible to
 //  use SCReAM with audio only
-static const int kInitMss = 100;
+static const int kInitMss = 10;
 
 // Min and max queue delay target
 static const float kQueueDelayTargetMax = 0.3f; //ms
@@ -364,6 +366,7 @@ float ScreamTx::isOkToTransmit(uint32_t time_ntp, uint32_t &ssrc) {
 		float rateRtp = 0.0f;
 		for (int n = 0; n < nStreams; n++) {
 			streams[n]->updateRate(time_ntp);
+            streams[n]->updateFECLossPercantage(time_ntp);
 			rateTransmitted += streams[n]->rateTransmitted;
 			rateRtp += streams[n]->rateRtp;
 			rateTransmittedAvg = 0.9f*rateTransmittedAvg + 0.1f*rateTransmitted;
@@ -890,6 +893,17 @@ float ScreamTx::getTargetBitrate(uint32_t ssrc) {
     return stream->getTargetBitrate();
 }
 
+int ScreamTx::getFECPercantage(uint32_t ssrc)
+{
+    int id;
+    Stream* stream = getStream(ssrc, id);
+    if (stream == 0) {
+        std::cerr << "SSRC not known" << std::endl;
+        return 0;
+    }
+    return stream->getFECLossPercantage();
+}
+
 void ScreamTx::setTargetPriority(uint32_t ssrc, float priority) {
 	int id;
 	Stream *stream = getStream(ssrc, id);
@@ -931,11 +945,12 @@ void ScreamTx::getShortLog(float time, char *s) {
 	for (int n = 0; n < nStreams; n++) {
 		Stream *tmp = streams[n];
 		char s2[200];
-        sprintf(s2, "%4.3f %6.3f %6.3f %6.3f %5.3f ",
+        sprintf(s2, "%4.3f %6.3f %6.3f %6.3f %5.3f %3d ",
 			std::max(0.0f, tmp->rtpQueue->getDelay(time)),
 			tmp->targetBitrate / 1000.0f, tmp->rateRtp / 1000.0f,
 			tmp->rateTransmitted / 1000.0f,
-			tmp->rateLost / 1000.0f);
+            tmp->rateLost / 1000.0f,
+            tmp->FECLossPercantage);
 		strcat(s, s2);
 	}
 }
@@ -1763,7 +1778,12 @@ float ScreamTx::Stream::getTargetBitrate() {
 	* rate control logic in the coder
 	*/
 	wasRepairLoss = false;
-	return rate;
+    return rate;
+}
+
+int ScreamTx::Stream::getFECLossPercantage()
+{
+    return FECLossPercantage;
 }
 
 /*
@@ -1839,7 +1859,8 @@ void ScreamTx::Stream::updateTargetBitrate(uint32_t time_ntp) {
 			* throughput in the initial phase.
 			*/
 			rtpQueue->clear();
-			cerr << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
+            cout << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
+            cerr << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
 
 			rtpQueueDiscard = true;
 
@@ -1900,7 +1921,8 @@ void ScreamTx::Stream::updateTargetBitrate(uint32_t time_ntp) {
 			* throughput in the initial phase.
 			*/
 			rtpQueue->clear();
-			cerr << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
+            cout << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
+            cerr << time_ntp / 65536.0f << " RTP queue discarded for SSRC " << ssrc << endl;
 
 			rtpQueueDiscard = true;
 
@@ -2002,11 +2024,28 @@ void ScreamTx::Stream::updateTargetBitrate(uint32_t time_ntp) {
 			}
 			targetBitrate += increment;
 
+            if (rtpQueueDelay > 0.02 && false) { //RTP_QDELAY_TH
+                targetBitrate *= 0.95; //   TARGET_RATE_SCALE_RTP_QDELAY
+            }
+
 		}
 		lastBitrateAdjustT_ntp = time_ntp;
 	}
 
-	targetBitrate = std::min(maxBitrate, std::max(minBitrate, targetBitrate));
+    targetBitrate = std::min(maxBitrate, std::max(minBitrate, targetBitrate));
+}
+
+void ScreamTx::Stream::updateFECLossPercantage(uint32_t time_ntp)
+{
+    if (time_ntp - lastFECPercantageAdjustT_ntp < kFECUpdatePercantageAdjustInterval_ntp) {
+        return;
+    }
+    int losspercantage = (rateLost / rateTransmitted) * 100;
+    //EWMA
+    FECLossPercantage = kAlphaFECPercantage * losspercantage + (1 - kAlphaFECPercantage) * FECLossPercantage;
+    std::cerr << "akt loss: " << losspercantage << "ewma: " << FECLossPercantage << std::endl;
+    FECLossPercantage = std::min(30, std::max(1, FECLossPercantage));
+    lastFECPercantageAdjustT_ntp = time_ntp;
 }
 
 bool ScreamTx::Stream::isRtpQueueDiscard() {

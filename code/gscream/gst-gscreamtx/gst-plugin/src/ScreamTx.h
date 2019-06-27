@@ -224,6 +224,8 @@ public:
 	*/
 	float getTargetBitrate(uint32_t ssrc);
 
+    int getFECPercantage(uint32_t ssrc);
+
 	/*
 	* Set target priority for a given stream, priority value should be in range ]0.0..1.0]
 	*/
@@ -347,11 +349,15 @@ private:
 
 		float getTargetBitrate();
 
+        int getFECLossPercantage();
+
 		void updateRate(uint32_t time_ntp);
 
 		void updateTargetBitrateI(float br);
 
 		void updateTargetBitrate(uint32_t time_ntp);
+
+        void updateFECLossPercantage(uint32_t time_ntp);
 
 		bool isRtpQueueDiscard();
 
@@ -366,6 +372,7 @@ private:
 		float queueDelayGuard;
 		float lossEventRateScale;
 		float ecnCeEventRateScale;
+        int FECLossPercantage;
 
 		int credit;             // Credit that is received if another stream gets
 		//  priority to transmit
@@ -390,6 +397,7 @@ private:
 		bool ecnCeEventFlag;    // Was ECN mark event
 		float txSizeBitsAvg;    // Avergage nymber of bits in RTP queue
 		uint32_t lastBitrateAdjustT_ntp; // Last time rate was updated for this stream
+        uint32_t lastFECPercantageAdjustT_ntp; // Last time rate was updated for this stream
 		uint32_t lastRateUpdateT_ntp;    // Last time rate estimate was updated
 		uint32_t lastTargetBitrateIUpdateT_ntp;    // Last time rate estimate was updated
 
