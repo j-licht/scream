@@ -264,6 +264,7 @@ void ScreamTx::registerNewStream(RtpQueueIface *rtpQueue,
 	float queueDelayGuard,
 	float lossEventRateScale,
 	float ecnCeEventRateScale) {
+    std::cout << "loss event scale: " << lossEventRateScale << " loss beta: " << lossBeta << " targetquedelay: " << queueDelayTarget << " rampUpSpeed: " << rampUpSpeed << " maxrate: " << maxBitrate << std::endl;
 	Stream *stream = new Stream(this,
 		rtpQueue,
 		ssrc,
@@ -2043,7 +2044,7 @@ void ScreamTx::Stream::updateFECLossPercantage(uint32_t time_ntp)
     int losspercantage = (rateLost / rateTransmitted) * 100;
     //EWMA
     FECLossPercantage = kAlphaFECPercantage * losspercantage + (1 - kAlphaFECPercantage) * FECLossPercantage;
-    std::cerr << "akt loss: " << losspercantage << "ewma: " << FECLossPercantage << std::endl;
+    //std::cerr << "akt loss: " << losspercantage << "ewma: " << FECLossPercantage << std::endl;
     FECLossPercantage = std::min(30, std::max(1, FECLossPercantage));
     lastFECPercantageAdjustT_ntp = time_ntp;
 }

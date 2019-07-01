@@ -58,6 +58,8 @@
 #define PACE_CLOCK_T_NS 2000000
 #define PACE_CLOCK_T_S 0.002f
 
+#define FRAME_SIZE 20
+
 GstgScreamTx *filter_;
 GST_DEBUG_CATEGORY_STATIC (gst_g_scream_tx_debug);
 #define GST_CAT_DEFAULT gst_g_scream_tx_debug
@@ -73,7 +75,12 @@ enum
 {
   PROP_0,
   PROP_SILENT,
-  PROP_MEDIA_SRC
+  PROP_MEDIA_SRC,
+  PROP_QUEUEING_DELAY,
+  PROP_LOSS_BETA,
+  PROP_LOSS_EVENT_SCALE,
+  PROP_RAMP,
+  PROP_MAX_RATE
 };
 #define DEST_HOST "127.0.0.1"
 
@@ -105,7 +112,36 @@ gst_g_scream_tx_class_init (GstgScreamTxClass * klass)
       g_param_spec_uint ("media-src", "Media source",
         "0=x264enc, 1=rpicamsrc, 2=uvch264src, 3=vaapih264enc, 4=omxh264enc, 5=opusenc",
         0, 5, 0,
-        G_PARAM_READWRITE));
+        G_PARAM_WRITABLE));
+  g_object_class_install_property (gobject_class, PROP_QUEUEING_DELAY,
+      g_param_spec_uint ("queueing_delay", "queueing delay",
+        "in ms",
+        0, 1000, 100,
+        G_PARAM_WRITABLE));
+
+  g_object_class_install_property (gobject_class, PROP_RAMP,
+      g_param_spec_uint ("rampupspeed", "rampup speed",
+        "in bps/s",
+        0, 1000000000, 100000,
+        G_PARAM_WRITABLE));
+
+  g_object_class_install_property (gobject_class, PROP_MAX_RATE,
+      g_param_spec_uint ("maxrate", "maxrate",
+        "in kbps",
+        5, 100, 64,
+        G_PARAM_WRITABLE));
+
+  g_object_class_install_property (gobject_class, PROP_LOSS_BETA,
+      g_param_spec_float("lossbeta", "loss beta",
+        "from 1.0 to 0.0, 1.0 mean no reaction to loss",
+        0.0, 1.0, 0.8,
+        G_PARAM_WRITABLE));
+
+  g_object_class_install_property (gobject_class, PROP_LOSS_EVENT_SCALE,
+      g_param_spec_float("losseventscale", "loss event scale",
+        "from 1.0 to 0.0, 1.0 mean no reaction to loss",
+        0.0, 1.0, 0.9,
+        G_PARAM_WRITABLE));
 
   gst_element_class_set_details_simple(gstelement_class,
     "gScreamTx",
@@ -130,7 +166,8 @@ gst_g_scream_tx_init (GstgScreamTx * filter)
   //g_print("INIT\n");
   filter->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
   filter->rtpSession = NULL;
-  filter->screamTx = new ScreamTx(0.8f, 0.9f, 0.1f, false, 1.0f, 2.0f, 50000, 0.0f, 20, false, false);
+  filter->screamTx = NULL;
+  //filter->screamTx = new ScreamTx(0.8f, 0.9f, 0.1f, false, 1.0f, 2.0f, 50000, 0.0f, 20, false, false);
   //filter->screamTx->setCwndMinLow(5000);
   filter->gstClockTimeRef = gst_clock_get_time(gst_system_clock_obtain());
   filter->rtpQueue = new RtpQueue();
@@ -138,6 +175,13 @@ gst_g_scream_tx_init (GstgScreamTx * filter)
   filter->lastRateChangeT = 0.0;
   pthread_mutex_init(&filter->lock_scream, NULL);
   pthread_mutex_init(&filter->lock_rtp_queue, NULL);
+
+  //setting Default paramter values
+  filter->losseventscale = 0.9;
+  filter->queueing_delay = 100;
+  filter->lossbeta = 0.8;
+  filter->rampUpSpeed = 100000;
+  filter->maxRate = 64;
 
   //filter->media_src = 0; // x264enc
 
@@ -172,6 +216,21 @@ gst_g_scream_tx_set_property (GObject * object, guint prop_id,
       break;
     case PROP_MEDIA_SRC:
       filter->media_src = g_value_get_uint (value);
+      break;
+    case PROP_QUEUEING_DELAY:
+      filter->queueing_delay = g_value_get_uint(value);
+      break;
+    case PROP_LOSS_BETA:
+      filter->lossbeta = g_value_get_float(value);
+      break;
+    case PROP_LOSS_EVENT_SCALE:
+      filter->losseventscale = g_value_get_float(value);
+      break;
+  case PROP_RAMP:
+      filter->rampUpSpeed = g_value_get_uint(value);
+      break;
+  case PROP_MAX_RATE:
+      filter->maxRate = g_value_get_uint(value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -445,7 +504,8 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 300e3f, 1000e3f, 15e6f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
         break;
       case 5:
-        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / 20)), 10e3f, 10e4f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
+        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / 20)), 10e3f, filter->maxRate * 1000, filter->rampUpSpeed, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
+        //filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / FRAME_SIZE)), 10e3f, 32e3f, 1e3f, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
         break;
     }
   }
@@ -515,6 +575,10 @@ gst_g_scream_tx_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
   //g_print(" PTR3 %x\n", filter);
   GST_LOG_OBJECT (filter, "Received %s event: %", GST_PTR_FORMAT,
       GST_EVENT_TYPE_NAME (event), event);
+
+  if (filter->screamTx == NULL) {
+      filter->screamTx = new ScreamTx(filter->lossbeta, 0.9f, filter->queueing_delay / 1000.0 , false, 1.0f, 2.0f, 50000, 0.0f, 20, false, false);
+  }
 
   if (filter->rtpSession == NULL) {
     GstElement *pipe = GST_ELEMENT_PARENT(parent);

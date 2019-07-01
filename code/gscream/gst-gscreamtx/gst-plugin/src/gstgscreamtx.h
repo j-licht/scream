@@ -88,6 +88,11 @@ struct _GstgScreamTx
   GstClockID clockId;
 
   guint media_src;
+  guint queueing_delay;
+  gfloat lossbeta;
+  gfloat losseventscale;
+  gfloat rampUpSpeed;
+  gint maxRate;
 };
 
 struct _GstgScreamTxClass
