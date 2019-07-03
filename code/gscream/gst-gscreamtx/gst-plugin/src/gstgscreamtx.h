@@ -93,6 +93,7 @@ struct _GstgScreamTx
   gfloat losseventscale;
   gfloat rampUpSpeed;
   gint maxRate;
+  gboolean fecControl;
 };
 
 struct _GstgScreamTxClass

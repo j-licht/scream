@@ -58,7 +58,7 @@
 #define PACE_CLOCK_T_NS 2000000
 #define PACE_CLOCK_T_S 0.002f
 
-#define FRAME_SIZE 20
+#define FRAME_SIZE 60
 
 GstgScreamTx *filter_;
 GST_DEBUG_CATEGORY_STATIC (gst_g_scream_tx_debug);
@@ -80,7 +80,8 @@ enum
   PROP_LOSS_BETA,
   PROP_LOSS_EVENT_SCALE,
   PROP_RAMP,
-  PROP_MAX_RATE
+  PROP_MAX_RATE,
+  PROP_FEC_CONTROL
 };
 #define DEST_HOST "127.0.0.1"
 
@@ -143,6 +144,12 @@ gst_g_scream_tx_class_init (GstgScreamTxClass * klass)
         0.0, 1.0, 0.9,
         G_PARAM_WRITABLE));
 
+  g_object_class_install_property (gobject_class, PROP_FEC_CONTROL,
+      g_param_spec_boolean("feccontrol", "feccontrol",
+        "enable the conrol of the FEC rate",
+        FALSE,
+        G_PARAM_WRITABLE));
+
   gst_element_class_set_details_simple(gstelement_class,
     "gScreamTx",
     "FIXME:Generic",
@@ -182,6 +189,7 @@ gst_g_scream_tx_init (GstgScreamTx * filter)
   filter->lossbeta = 0.8;
   filter->rampUpSpeed = 100000;
   filter->maxRate = 64;
+  filter->fecControl = FALSE;
 
   //filter->media_src = 0; // x264enc
 
@@ -231,6 +239,9 @@ gst_g_scream_tx_set_property (GObject * object, guint prop_id,
       break;
   case PROP_MAX_RATE:
       filter->maxRate = g_value_get_uint(value);
+      break;
+     case PROP_FEC_CONTROL:
+      filter->fecControl = g_value_get_boolean(value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -387,9 +398,11 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
               case 3:
               case 5:
                 //subtract overhead
-                rate -= 12 * 8 * (1000 / 20);
+                rate -= 12 * 8 * (1000 / FRAME_SIZE);
                 g_object_set(G_OBJECT(filter_->encoder), "bitrate", rate, NULL);
-                //g_object_set(G_OBJECT(filter_->encoder), "packet-loss-percentage", fecpercentage, NULL);
+                if (filter->fecControl) {
+                    g_object_set(G_OBJECT(filter_->encoder), "packet-loss-percentage", fecpercentage, NULL);
+                }
                 break;
               case 2:
                 g_object_set(G_OBJECT(filter_->encoder), "average-bitrate", rate, NULL);
@@ -486,6 +499,7 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
   //gst_buffer_extract (buf, 0, pkt, size);
   if (filter->screamTx->getStreamQueue(ssrc_h) == 0) {
     g_print(" New stream, register !\n");
+    std::cout << "Frame_size: " << FRAME_SIZE << " fec_control " << filter->fecControl << std::endl;
 
     switch (filter_->media_src) {
       case 0:
@@ -504,7 +518,7 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 300e3f, 1000e3f, 15e6f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
         break;
       case 5:
-        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / 20)), 10e3f, filter->maxRate * 1000, filter->rampUpSpeed, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
+        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / FRAME_SIZE)), 10e3f, filter->maxRate * 1000, filter->rampUpSpeed, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
         //filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / FRAME_SIZE)), 10e3f, 32e3f, 1e3f, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
         break;
     }
