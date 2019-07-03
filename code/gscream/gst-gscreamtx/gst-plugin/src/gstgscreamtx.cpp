@@ -400,7 +400,8 @@ on_receiving_rtcp(GObject *session, GstBuffer *buffer, gboolean early, GObject *
                 //subtract overhead
                 rate -= 12 * 8 * (1000 / FRAME_SIZE);
                 g_object_set(G_OBJECT(filter_->encoder), "bitrate", rate, NULL);
-                if (filter->fecControl) {
+                g_assert(filter_);
+                if (filter_->fecControl) {
                     g_object_set(G_OBJECT(filter_->encoder), "packet-loss-percentage", fecpercentage, NULL);
                 }
                 break;
