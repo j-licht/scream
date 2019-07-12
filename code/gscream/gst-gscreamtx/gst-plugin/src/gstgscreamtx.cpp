@@ -81,7 +81,8 @@ enum
   PROP_LOSS_EVENT_SCALE,
   PROP_RAMP,
   PROP_MAX_RATE,
-  PROP_FEC_CONTROL
+  PROP_FEC_CONTROL,
+  PROP_MIN_RATE
 };
 #define DEST_HOST "127.0.0.1"
 
@@ -130,6 +131,12 @@ gst_g_scream_tx_class_init (GstgScreamTxClass * klass)
       g_param_spec_uint ("maxrate", "maxrate",
         "in kbps",
         5, 100, 64,
+        G_PARAM_WRITABLE));
+
+  g_object_class_install_property (gobject_class, PROP_MIN_RATE,
+      g_param_spec_uint ("minrate", "minrate",
+        "in kbps",
+        4, 100, 4,
         G_PARAM_WRITABLE));
 
   g_object_class_install_property (gobject_class, PROP_LOSS_BETA,
@@ -189,6 +196,7 @@ gst_g_scream_tx_init (GstgScreamTx * filter)
   filter->lossbeta = 0.8;
   filter->rampUpSpeed = 100000;
   filter->maxRate = 64;
+  filter->minRate = 4;
   filter->fecControl = FALSE;
 
   //filter->media_src = 0; // x264enc
@@ -242,6 +250,9 @@ gst_g_scream_tx_set_property (GObject * object, guint prop_id,
       break;
      case PROP_FEC_CONTROL:
       filter->fecControl = g_value_get_boolean(value);
+      break;
+  case PROP_MIN_RATE:
+      filter->minRate = g_value_get_uint(value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -500,7 +511,7 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
   //gst_buffer_extract (buf, 0, pkt, size);
   if (filter->screamTx->getStreamQueue(ssrc_h) == 0) {
     g_print(" New stream, register !\n");
-    std::cout << "Frame_size: " << FRAME_SIZE << " fec_control " << filter->fecControl << std::endl;
+    std::cout << "Frame_size: " << FRAME_SIZE << " fec_control " << filter->fecControl << " max rate " << filter->maxRate * 1000 << " min rate " << (filter->minRate * 1000 + 12 * 8 * (1000 / FRAME_SIZE)) << std::endl;
 
     switch (filter_->media_src) {
       case 0:
@@ -519,7 +530,7 @@ gst_g_scream_tx_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
         filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, 300e3f, 1000e3f, 15e6f, 5e6f, 0.3f, 0.2f, 0.1f, 0.2f);
         break;
       case 5:
-        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / FRAME_SIZE)), 10e3f, filter->maxRate * 1000, filter->rampUpSpeed, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
+        filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (filter->minRate * 1000 + 12 * 8 * (1000 / FRAME_SIZE)), 10e3f, filter->maxRate * 1000, filter->rampUpSpeed, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
         //filter->screamTx->registerNewStream(filter->rtpQueue, ssrc_h, 1.0f, (4000.0 + 12 * 8 * (1000 / FRAME_SIZE)), 10e3f, 32e3f, 1e3f, 0.3f, 0.2f, 0.1f, 0.2f, filter->losseventscale);
         break;
     }
