@@ -263,8 +263,9 @@ void ScreamTx::registerNewStream(RtpQueueIface *rtpQueue,
 	float txQueueSizeFactor,
 	float queueDelayGuard,
 	float lossEventRateScale,
+    bool q_control,
 	float ecnCeEventRateScale) {
-    std::cout << "loss event scale: " << lossEventRateScale << " loss beta: " << lossBeta << " targetquedelay: " << queueDelayTarget << " rampUpSpeed: " << rampUpSpeed << " maxrate: " << maxBitrate << std::endl;
+    std::cout << "loss event scale: " << lossEventRateScale << " loss beta: " << lossBeta << " targetquedelay: " << queueDelayTarget << " rampUpSpeed: " << rampUpSpeed << " maxrate: " << maxBitrate << " qcontrol: " << q_control << std::endl;
 	Stream *stream = new Stream(this,
 		rtpQueue,
 		ssrc,
@@ -278,6 +279,7 @@ void ScreamTx::registerNewStream(RtpQueueIface *rtpQueue,
 		txQueueSizeFactor,
 		queueDelayGuard,
 		lossEventRateScale,
+        q_control,
 		ecnCeEventRateScale);
 	streams[nStreams++] = stream;
 }
@@ -1617,6 +1619,7 @@ ScreamTx::Stream::Stream(ScreamTx *parent_,
 	float txQueueSizeFactor_,
 	float queueDelayGuard_,
 	float lossEventRateScale_,
+    bool q_control_,
 	float ecnCeEventRateScale_) {
 	parent = parent_;
 	rtpQueue = rtpQueue_;
@@ -1632,6 +1635,7 @@ ScreamTx::Stream::Stream(ScreamTx *parent_,
 	txQueueSizeFactor = txQueueSizeFactor_;
 	queueDelayGuard = queueDelayGuard_;
 	lossEventRateScale = lossEventRateScale_;
+    q_control = q_control_;
 	ecnCeEventRateScale = ecnCeEventRateScale_;
 	targetBitrateHistUpdateT_ntp = 0;
 	targetBitrateI = 1.0f;
@@ -2025,7 +2029,7 @@ void ScreamTx::Stream::updateTargetBitrate(uint32_t time_ntp) {
 			}
 			targetBitrate += increment;
 
-            if (rtpQueueDelay > 0.02 && false) { //RTP_QDELAY_TH
+            if (rtpQueueDelay > 0.02 && q_control) { //RTP_QDELAY_TH
                 targetBitrate *= 0.95; //   TARGET_RATE_SCALE_RTP_QDELAY
             }
 

@@ -95,6 +95,7 @@ struct _GstgScreamTx
   gint maxRate;
   gint minRate;
   gboolean fecControl;
+  gboolean qControl;
 };
 
 struct _GstgScreamTxClass

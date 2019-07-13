@@ -147,6 +147,7 @@ public:
 		float txQueueSizeFactor = kTxQueueSizeFactor,
 		float queueDelayGuard = kQueueDelayGuard,
 		float lossEventRateScale = kLossEventRateScale,
+        bool qControl = false,
 		float ecnCeEventRateScale = kEcnCeEventRateScale);
 
 	/*
@@ -343,6 +344,7 @@ private:
 			float txQueueSizeFactor,
 			float queueDelayGuard,
 			float lossEventRateScale,
+            bool q_control,
 			float ecnCeEventRateScale);
 
 		float getMaxRate();
@@ -372,7 +374,8 @@ private:
 		float queueDelayGuard;
 		float lossEventRateScale;
 		float ecnCeEventRateScale;
-        int FECLossPercantage;
+        bool q_control;
+        int FECLossPercantage = 0;
 
 		int credit;             // Credit that is received if another stream gets
 		//  priority to transmit
